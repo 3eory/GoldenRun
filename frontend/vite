@@ -1,0 +1,41 @@
+
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+[Failed to load PostCSS config: Failed to load PostCSS config (searchPath: /Users/billy/
+[Failed to load PostCSS config: Failed to load PostCSS config (searchPath: /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend): [Error] Loading PostCSS Plugin failed: Can
+[Failed to load PostCSS config: Failed to load PostCSS config (searchPath: /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend): [Error] Loading PostCSS Plugin failed: Cannot find module '../util/hashConfig'
+Require stack:
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/plugin.js
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/index.js
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/postcss.config.js
+
+(@/Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/postcss.config.js)
+Error: Loading PostCSS Plugin failed: Cannot find module '../util/hashConfig'
+Require stack:
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/plugin.js
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/tailwindcss/lib/index.js
+- /Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/postcss.config.js
+
+(@/Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/postcss.config.js)
+    at load (file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_module
+    at load (file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33632:11)
+    at file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/vite
+    at file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33657:16
+    at Array.map (<anonymous>)
+    at plugins (file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_mod
+    at plugins (file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33656:8)
+    at processResult (file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/no
+    at processResult (file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33726:14)
+    at file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/vite
+    at file:///Users/billy/Desktop/CompSci/Personal/GoldenRun/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33856:14]
+
