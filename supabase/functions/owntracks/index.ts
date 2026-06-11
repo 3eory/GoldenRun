@@ -88,6 +88,16 @@ Deno.serve(async (req) => {
     return ok();
   }
 
+  const { data: active, error: activeErr } = await supabase.rpc("is_run_active");
+  if (activeErr) {
+    console.error("is_run_active error", activeErr);
+    return new Response("status check failed", { status: 500 });
+  }
+  if (!active) {
+    // Run not started or stopped — acknowledge OwnTracks but do not record.
+    return ok([]);
+  }
+
   const { error } = await supabase.from("locations").insert(rows);
   if (error) {
     console.error("insert error", error);

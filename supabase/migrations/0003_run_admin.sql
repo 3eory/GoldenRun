@@ -75,8 +75,8 @@ begin
     raise exception 'Unauthorized' using errcode = '42501';
   end if;
 
-  delete from public.locations;
-  delete from public.events;
+  delete from public.locations where true;
+  delete from public.events where true;
   delete from public.app_config where key = 'run_start';
 
   -- Reset serial sequences for cleaner IDs.

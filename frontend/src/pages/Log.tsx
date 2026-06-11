@@ -26,9 +26,22 @@ export default function Log() {
   const [locErr, setLocErr] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [runInactive, setRunInactive] = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem(UNLOCK_KEY) === "1") setUnlocked(true);
+  }, []);
+
+  useEffect(() => {
+    supabase.rpc("get_run_info").then(({ data, error }) => {
+      if (error) return;
+      const row = data as { run_start?: unknown; run_stop?: unknown; is_active?: unknown };
+      const hasStart = typeof row.run_start === "string" && row.run_start.length > 0;
+      const hasStop = typeof row.run_stop === "string" && row.run_stop.length > 0;
+      const isActive =
+        typeof row.is_active === "boolean" ? row.is_active : hasStart && !hasStop;
+      setRunInactive(!isActive);
+    });
   }, []);
 
   useEffect(() => {
@@ -73,6 +86,10 @@ export default function Log() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (runInactive) {
+      setToast("Error: Run is not active — start the run from the map first");
+      return;
+    }
     if (!coords) {
       setLocErr("Need a location first");
       return;
@@ -214,7 +231,13 @@ export default function Log() {
         </div>
         {locErr && <div className="text-xs text-sunset">{locErr}</div>}
 
-        <button type="submit" className="btn-primary" disabled={submitting || !coords}>
+        {runInactive && (
+          <div className="text-sm text-sunset text-center">
+            Run is not active — start it from the map admin panel first.
+          </div>
+        )}
+
+        <button type="submit" className="btn-primary" disabled={submitting || !coords || runInactive}>
           {submitting ? "Saving…" : "Save entry"}
         </button>
         {toast && (

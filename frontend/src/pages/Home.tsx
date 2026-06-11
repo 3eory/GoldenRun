@@ -12,7 +12,7 @@ import {
 } from "../lib/mapTheme";
 
 export default function Home() {
-  const { locations, events, loading, error } = useTripData();
+  const { locations, events, runInfo, setRunInfo, loading, error } = useTripData();
   const [mapThemeMode, setMapThemeMode] = useState<MapThemeMode>(() => {
     try {
       return getStoredMapThemeMode();
@@ -60,15 +60,20 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="relative min-h-[55vh] lg:min-h-0 lg:row-span-1">
-        <Map locations={locations} events={events} styleUrl={styleUrl} />
-        <div className="absolute left-3 md:left-4 top-3 z-10">
-          <Stats locations={locations} />
+      <div className="relative flex-1 min-h-[45vh] lg:min-h-0 lg:row-span-1">
+        <Map locations={locations} events={events} styleUrl={styleUrl} loading={loading} />
+        <div className="absolute left-3 md:left-4 top-3 z-10 hidden lg:block">
+          <Stats locations={locations} runInfo={runInfo} onRunInfoChange={setRunInfo} />
         </div>
       </div>
 
-      <aside className="lg:border-l border-white/5 bg-zinc-950 p-3 lg:p-4 flex flex-col min-h-[45vh] lg:min-h-0 lg:overflow-hidden">
-        <Timeline events={events} />
+      <aside className="shrink-0 lg:border-l border-t lg:border-t-0 border-white/5 bg-zinc-950 flex flex-col lg:min-h-0 lg:overflow-hidden">
+        <div className="lg:hidden p-3 pb-0">
+          <Stats locations={locations} runInfo={runInfo} onRunInfoChange={setRunInfo} className="max-w-none" />
+        </div>
+        <div className="p-3 lg:p-4 flex flex-col min-h-[30vh] lg:min-h-0 flex-1 lg:overflow-hidden">
+          <Timeline events={events} />
+        </div>
       </aside>
     </div>
   );

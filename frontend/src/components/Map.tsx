@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import simplify from "@turf/simplify";
 import { featureCollection, lineString, point } from "@turf/helpers";
@@ -11,6 +11,7 @@ type Props = {
   locations: LocationRow[];
   events: EventRow[];
   styleUrl?: string;
+  loading?: boolean;
   onEventClick?: (e: EventRow) => void;
 };
 
@@ -38,6 +39,8 @@ const ROUTE_LAYER = "route-driven-line";
 
 const ENDPOINTS_SRC = "route-endpoints";
 const ENDPOINTS_LAYER = "route-endpoints-pins";
+
+type MapViewMode = "location" | "route";
 
 function buildEventsGeoJSON(events: EventRow[]) {
   return featureCollection(
@@ -102,18 +105,75 @@ function buildRouteGeoJSON(locations: LocationRow[]) {
   );
 }
 
-export default function Map({ locations, events, styleUrl, onEventClick }: Props) {
+export default function Map({ locations, events, styleUrl, loading, onEventClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const loadedRef = useRef(false);
   const didInitialFitRef = useRef(false);
   const currentStyleRef = useRef<string | null>(null);
   const onEventClickRef = useRef(onEventClick);
+  const viewModeRef = useRef<MapViewMode>("location");
   onEventClickRef.current = onEventClick;
+
+  const [viewMode, setViewMode] = useState<MapViewMode>("location");
+  const [mapReady, setMapReady] = useState(false);
 
   const eventsGeo = useMemo(() => buildEventsGeoJSON(events), [events]);
   const routeGeo = useMemo(() => buildRouteGeoJSON(locations), [locations]);
   const last = locations[locations.length - 1];
+
+  const locationsRef = useRef(locations);
+  const eventsRef = useRef(events);
+  const lastRef = useRef(last);
+  locationsRef.current = locations;
+  eventsRef.current = events;
+  lastRef.current = last;
+
+  const applyMapView = useCallback((mode: MapViewMode) => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+
+    const padding = focusPadding();
+    if (mode === "location") {
+      const cur = lastRef.current;
+      if (cur) {
+        map.flyTo({
+          center: [cur.lon, cur.lat],
+          zoom: 9,
+          duration: 800,
+          padding,
+        });
+      } else {
+        map.flyTo({
+          center: [INIT_LNG, INIT_LAT],
+          zoom: INIT_ZOOM,
+          duration: 800,
+        });
+      }
+      return;
+    }
+
+    const bounds = new mapboxgl.LngLatBounds();
+    bounds.extend(ROUTE_START);
+    bounds.extend(ROUTE_END);
+    for (const loc of locationsRef.current) bounds.extend([loc.lon, loc.lat]);
+    for (const ev of eventsRef.current) bounds.extend([ev.lon, ev.lat]);
+
+    map.fitBounds(bounds, {
+      padding,
+      duration: 800,
+      maxZoom: 10,
+    });
+  }, []);
+
+  const setMapView = useCallback(
+    (mode: MapViewMode) => {
+      viewModeRef.current = mode;
+      setViewMode(mode);
+      applyMapView(mode);
+    },
+    [applyMapView]
+  );
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -318,6 +378,7 @@ export default function Map({ locations, events, styleUrl, onEventClick }: Props
       loadedRef.current = true;
       currentStyleRef.current = styleUrl ?? DEFAULT_STYLE;
       addOverlays();
+      setMapReady(true);
     });
     map.on("style.load", () => {
       if (!loadedRef.current) return;
@@ -329,6 +390,7 @@ export default function Map({ locations, events, styleUrl, onEventClick }: Props
       mapRef.current = null;
       loadedRef.current = false;
       didInitialFitRef.current = false;
+      setMapReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -361,29 +423,39 @@ export default function Map({ locations, events, styleUrl, onEventClick }: Props
     const next = styleUrl ?? DEFAULT_STYLE;
     if (currentStyleRef.current === next) return;
     currentStyleRef.current = next;
-    didInitialFitRef.current = false; // refit after style change
     map.setStyle(next);
-  }, [styleUrl]);
+    map.once("style.load", () => {
+      applyMapView(viewModeRef.current);
+    });
+  }, [styleUrl, applyMapView]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !loadedRef.current) return;
-    if (didInitialFitRef.current) return;
-
-    const bounds = new mapboxgl.LngLatBounds();
-    bounds.extend(ROUTE_START);
-    bounds.extend(ROUTE_END);
-    for (const loc of locations) bounds.extend([loc.lon, loc.lat]);
-
-    map.fitBounds(bounds, {
-      padding: { top: 200, bottom: 60, left: 340, right: 60 },
-      duration: 800,
-      maxZoom: 10,
-    });
+    if (!mapReady || loading || didInitialFitRef.current) return;
+    applyMapView("location");
     didInitialFitRef.current = true;
-  }, [locations]);
+  }, [mapReady, loading, applyMapView]);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
+      {TOKEN && (
+        <div className="absolute z-10 bottom-24 lg:bottom-4 right-3 flex items-center gap-1 rounded-xl border border-white/10 bg-zinc-900/90 backdrop-blur-md p-1 shadow-lg">
+          <ViewButton
+            active={viewMode === "location"}
+            label="Me"
+            title="Focus on my location"
+            onClick={() => setMapView("location")}
+          />
+          <ViewButton
+            active={viewMode === "route"}
+            label="Route"
+            title="Show full route"
+            onClick={() => setMapView("route")}
+          />
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Hide basemap clutter so the map stays clean at a country-wide zoom.
@@ -446,6 +518,40 @@ function safeRemoveSource(map: mapboxgl.Map, id: string) {
       // ignore
     }
   }
+}
+
+function focusPadding(): mapboxgl.PaddingOptions {
+  const mobile = window.matchMedia("(max-width: 1023px)").matches;
+  if (mobile) return { top: 48, bottom: 320, left: 24, right: 24 };
+  return { top: 180, bottom: 48, left: 360, right: 48 };
+}
+
+function ViewButton({
+  active,
+  label,
+  title,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  title: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={
+        "px-3 py-1.5 text-[11px] font-semibold rounded-lg transition " +
+        (active
+          ? "bg-white text-zinc-900"
+          : "text-white/60 hover:text-white hover:bg-white/5")
+      }
+    >
+      {label}
+    </button>
+  );
 }
 
 function escapeHtml(s: string): string {
