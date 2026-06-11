@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import mapboxgl from "mapbox-gl";
-import { featureCollection, point } from "@turf/helpers";
+import simplify from "@turf/simplify";
+import { featureCollection, lineString, point } from "@turf/helpers";
 import type { EventRow, LocationRow } from "../lib/types";
 import { EVENT_META } from "../lib/types";
 import { ROUTE_START, ROUTE_END } from "../lib/route";
+import { haversineMiles } from "../lib/stats";
 
 type Props = {
   locations: LocationRow[];
@@ -29,6 +31,10 @@ const EVENTS_EMOJI_LAYER = "events-emojis";
 const CURSOR_SRC = "cursor";
 const CURSOR_HALO_LAYER = "cursor-halo";
 const CURSOR_LAYER = "cursor-pulse";
+
+const ROUTE_SRC = "route-driven";
+const ROUTE_HALO_LAYER = "route-driven-halo";
+const ROUTE_LAYER = "route-driven-line";
 
 const ENDPOINTS_SRC = "route-endpoints";
 const ENDPOINTS_LAYER = "route-endpoints-pins";
@@ -57,6 +63,45 @@ function buildEndpointsGeoJSON() {
   ]);
 }
 
+function isValidSegment(prev: LocationRow, cur: LocationRow) {
+  const d = haversineMiles(prev, cur);
+  const dtHrs =
+    (new Date(cur.timestamp).getTime() - new Date(prev.timestamp).getTime()) /
+    3_600_000;
+  const implied = dtHrs > 0 ? d / dtHrs : 0;
+  return implied < 500 && d < 50;
+}
+
+function buildRouteGeoJSON(locations: LocationRow[]) {
+  if (locations.length < 2) return featureCollection([]);
+
+  const segments: [number, number][][] = [];
+  let current: [number, number][] = [[locations[0].lon, locations[0].lat]];
+
+  for (let i = 1; i < locations.length; i++) {
+    const prev = locations[i - 1];
+    const cur = locations[i];
+    if (isValidSegment(prev, cur)) {
+      current.push([cur.lon, cur.lat]);
+    } else {
+      if (current.length >= 2) segments.push(current);
+      current = [[cur.lon, cur.lat]];
+    }
+  }
+  if (current.length >= 2) segments.push(current);
+  if (segments.length === 0) return featureCollection([]);
+
+  return featureCollection(
+    segments.map((seg) => {
+      let geom = lineString(seg);
+      if (seg.length > 100) {
+        geom = simplify(geom, { tolerance: 0.0001, highQuality: false });
+      }
+      return geom;
+    })
+  );
+}
+
 export default function Map({ locations, events, styleUrl, onEventClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -67,6 +112,7 @@ export default function Map({ locations, events, styleUrl, onEventClick }: Props
   onEventClickRef.current = onEventClick;
 
   const eventsGeo = useMemo(() => buildEventsGeoJSON(events), [events]);
+  const routeGeo = useMemo(() => buildRouteGeoJSON(locations), [locations]);
   const last = locations[locations.length - 1];
 
   useEffect(() => {
@@ -89,6 +135,34 @@ export default function Map({ locations, events, styleUrl, onEventClick }: Props
 
     const addOverlays = () => {
       simplifyBasemap(map);
+
+      // Driven route
+      safeRemoveLayer(map, ROUTE_LAYER);
+      safeRemoveLayer(map, ROUTE_HALO_LAYER);
+      safeRemoveSource(map, ROUTE_SRC);
+      map.addSource(ROUTE_SRC, { type: "geojson", data: routeGeo as any });
+      map.addLayer({
+        id: ROUTE_HALO_LAYER,
+        type: "line",
+        source: ROUTE_SRC,
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#0b0f14",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 3, 12, 5, 9, 8, 6, 12, 9],
+          "line-opacity": 0.9,
+        },
+      });
+      map.addLayer({
+        id: ROUTE_LAYER,
+        type: "line",
+        source: ROUTE_SRC,
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#f97316",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 3, 7, 5, 5.5, 8, 4, 12, 6],
+          "line-opacity": 0.95,
+        },
+      });
 
       // Endpoints
       safeRemoveLayer(map, ENDPOINTS_LAYER);
@@ -262,6 +336,13 @@ export default function Map({ locations, events, styleUrl, onEventClick }: Props
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
+    const src = map.getSource(ROUTE_SRC) as mapboxgl.GeoJSONSource | undefined;
+    src?.setData(routeGeo as any);
+  }, [routeGeo]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
     const src = map.getSource(EVENTS_SRC) as mapboxgl.GeoJSONSource | undefined;
     src?.setData(eventsGeo as any);
   }, [eventsGeo]);
@@ -292,7 +373,7 @@ export default function Map({ locations, events, styleUrl, onEventClick }: Props
     const bounds = new mapboxgl.LngLatBounds();
     bounds.extend(ROUTE_START);
     bounds.extend(ROUTE_END);
-    if (last) bounds.extend([last.lon, last.lat]);
+    for (const loc of locations) bounds.extend([loc.lon, loc.lat]);
 
     map.fitBounds(bounds, {
       padding: { top: 200, bottom: 60, left: 340, right: 60 },
@@ -300,7 +381,7 @@ export default function Map({ locations, events, styleUrl, onEventClick }: Props
       maxZoom: 10,
     });
     didInitialFitRef.current = true;
-  }, [last]);
+  }, [locations]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
