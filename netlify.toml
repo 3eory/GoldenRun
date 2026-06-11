@@ -5,6 +5,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # VITE_* vars are embedded in the client bundle by design — not server secrets.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_MAPBOX_TOKEN,VITE_MAPBOX_STYLE,VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY,VITE_LOG_PAGE_PASSWORD,VITE_LOG_RPC_SECRET,VITE_ADMIN_RPC_SECRET,VITE_PUBLIC_DELAY_MINUTES,VITE_MAP_INITIAL_LNG,VITE_MAP_INITIAL_LAT,VITE_MAP_INITIAL_ZOOM"
 
 # SPA fallback so react-router routes like /log resolve client-side
 [[redirects]]
