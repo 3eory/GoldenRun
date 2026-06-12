@@ -45,6 +45,38 @@ function filterByRun<T extends { timestamp: string }>(
   return rows.filter((r) => inRunWindow(r.timestamp, runStart, runStop));
 }
 
+// Supabase caps each request at 1000 rows regardless of .limit(), so a long
+// run (>1000 pings) silently truncates unless we page through the table.
+const PAGE_SIZE = 1000;
+const MAX_LOCATION_ROWS = 100_000;
+
+async function fetchAllLocations(
+  since: string,
+  cutoff: string | null,
+  runStart: string | null,
+  runStop: string | null
+): Promise<LocationRow[]> {
+  const all: LocationRow[] = [];
+  for (let from = 0; all.length < MAX_LOCATION_ROWS; from += PAGE_SIZE) {
+    let q = supabase
+      .from("locations")
+      .select("id,lat,lon,timestamp,speed,battery,accuracy,altitude")
+      .gte("timestamp", since)
+      .order("timestamp", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (cutoff) q = q.lte("timestamp", cutoff);
+    if (runStart) q = q.gte("timestamp", runStart);
+    if (runStop) q = q.lte("timestamp", runStop);
+
+    const { data, error } = await q;
+    if (error) throw error;
+    const rows = (data as LocationRow[]) ?? [];
+    all.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return all;
+}
+
 export function useTripData() {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -77,34 +109,23 @@ export function useTripData() {
         const info = await fetchRunInfo();
         const { runStart, runStop } = info;
 
-        let locQ = supabase
-          .from("locations")
-          .select("id,lat,lon,timestamp,speed,battery,accuracy,altitude")
-          .gte("timestamp", since)
-          .order("timestamp", { ascending: true })
-          .limit(20000);
-        if (cutoff) locQ = locQ.lte("timestamp", cutoff);
-        if (runStart) locQ = locQ.gte("timestamp", runStart);
-        if (runStop) locQ = locQ.lte("timestamp", runStop);
-
         let evQ = supabase
           .from("events")
           .select("id,type,title,notes,lat,lon,timestamp,cost")
           .gte("timestamp", since)
           .order("timestamp", { ascending: true })
-          .limit(5000);
+          .limit(1000);
         if (runStart) evQ = evQ.gte("timestamp", runStart);
         if (runStop) evQ = evQ.lte("timestamp", runStop);
 
-        const [{ data: locs, error: le }, { data: evs, error: ee }] = await Promise.all([
-          locQ,
+        const [locs, { data: evs, error: ee }] = await Promise.all([
+          fetchAllLocations(since, cutoff, runStart, runStop),
           evQ,
         ]);
         if (cancelled) return;
-        if (le) throw le;
         if (ee) throw ee;
 
-        setLocations((locs as LocationRow[]) ?? []);
+        setLocations(locs);
         setEvents((evs as EventRow[]) ?? []);
         setError(null);
       } catch (e: any) {
