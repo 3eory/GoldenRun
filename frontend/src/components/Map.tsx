@@ -4,7 +4,12 @@ import simplify from "@turf/simplify";
 import { featureCollection, lineString, point } from "@turf/helpers";
 import type { EventRow, LocationRow } from "../lib/types";
 import { EVENT_META } from "../lib/types";
-import { ROUTE_START, ROUTE_END } from "../lib/route";
+import {
+  ROUTE_START,
+  ROUTE_END,
+  routeOverviewCenter,
+  routeOverviewZoom,
+} from "../lib/route";
 import { haversineMiles } from "../lib/stats";
 
 type Props = {
@@ -133,8 +138,10 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
 
-    const padding = focusPadding();
+    map.stop();
+
     if (mode === "location") {
+      const padding = focusPadding();
       const cur = lastRef.current;
       if (cur) {
         map.flyTo({
@@ -142,27 +149,25 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
           zoom: 9,
           duration: 800,
           padding,
+          essential: true,
         });
       } else {
         map.flyTo({
           center: [INIT_LNG, INIT_LAT],
           zoom: INIT_ZOOM,
           duration: 800,
+          essential: true,
         });
       }
       return;
     }
 
-    const bounds = new mapboxgl.LngLatBounds();
-    bounds.extend(ROUTE_START);
-    bounds.extend(ROUTE_END);
-    for (const loc of locationsRef.current) bounds.extend([loc.lon, loc.lat]);
-    for (const ev of eventsRef.current) bounds.extend([ev.lon, ev.lat]);
-
-    map.fitBounds(bounds, {
-      padding,
-      duration: 800,
-      maxZoom: 10,
+    map.flyTo({
+      center: routeOverviewCenter(),
+      zoom: routeOverviewZoom(),
+      padding: routeOverviewPadding(),
+      duration: 1000,
+      essential: true,
     });
   }, []);
 
@@ -170,7 +175,14 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
     (mode: MapViewMode) => {
       viewModeRef.current = mode;
       setViewMode(mode);
-      applyMapView(mode);
+
+      const run = () => applyMapView(mode);
+      if (mapRef.current?.isStyleLoaded()) {
+        run();
+      } else {
+        mapRef.current?.once("load", run);
+        mapRef.current?.once("style.load", run);
+      }
     },
     [applyMapView]
   );
@@ -187,6 +199,11 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
       style: styleUrl ?? DEFAULT_STYLE,
       center: [last?.lon ?? INIT_LNG, last?.lat ?? INIT_LAT],
       zoom: last ? 5 : INIT_ZOOM,
+      projection: "mercator",
+      pitch: 0,
+      maxPitch: 0,
+      dragRotate: false,
+      touchPitch: false,
       attributionControl: true,
       cooperativeGestures: false,
     });
@@ -207,9 +224,9 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
         source: ROUTE_SRC,
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": "#0b0f14",
+          "line-color": "#1e3a5f",
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 12, 5, 9, 8, 6, 12, 9],
-          "line-opacity": 0.9,
+          "line-opacity": 0.85,
         },
       });
       map.addLayer({
@@ -218,7 +235,7 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
         source: ROUTE_SRC,
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": "#f97316",
+          "line-color": "#3ea8ff",
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 7, 5, 5.5, 8, 4, 12, 6],
           "line-opacity": 0.95,
         },
@@ -377,11 +394,13 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
     map.on("load", () => {
       loadedRef.current = true;
       currentStyleRef.current = styleUrl ?? DEFAULT_STYLE;
+      map.setProjection("mercator");
       addOverlays();
       setMapReady(true);
     });
     map.on("style.load", () => {
       if (!loadedRef.current) return;
+      map.setProjection("mercator");
       addOverlays();
     });
 
@@ -425,6 +444,7 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
     currentStyleRef.current = next;
     map.setStyle(next);
     map.once("style.load", () => {
+      map.setProjection("mercator");
       applyMapView(viewModeRef.current);
     });
   }, [styleUrl, applyMapView]);
@@ -439,7 +459,7 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
       {TOKEN && (
-        <div className="absolute z-10 bottom-24 lg:bottom-4 right-3 flex items-center gap-1 rounded-xl border border-white/10 bg-zinc-900/90 backdrop-blur-md p-1 shadow-lg">
+        <div className="absolute z-20 top-3 left-3 lg:top-auto lg:left-auto lg:bottom-4 lg:right-3 flex items-center gap-1 rounded-xl border border-white/10 bg-zinc-900/90 backdrop-blur-md p-1 shadow-lg pointer-events-auto touch-manipulation">
           <ViewButton
             active={viewMode === "location"}
             label="Me"
@@ -520,9 +540,15 @@ function safeRemoveSource(map: mapboxgl.Map, id: string) {
   }
 }
 
+function routeOverviewPadding(): mapboxgl.PaddingOptions {
+  const mobile = window.matchMedia("(max-width: 1023px)").matches;
+  if (mobile) return { top: 56, bottom: 56, left: 32, right: 32 };
+  return { top: 120, bottom: 48, left: 360, right: 400 };
+}
+
 function focusPadding(): mapboxgl.PaddingOptions {
   const mobile = window.matchMedia("(max-width: 1023px)").matches;
-  if (mobile) return { top: 48, bottom: 320, left: 24, right: 24 };
+  if (mobile) return { top: 72, bottom: 320, left: 24, right: 24 };
   return { top: 180, bottom: 48, left: 360, right: 48 };
 }
 
@@ -541,9 +567,12 @@ function ViewButton({
     <button
       type="button"
       title={title}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       className={
-        "px-3 py-1.5 text-[11px] font-semibold rounded-lg transition " +
+        "px-3 py-2 text-[11px] font-semibold rounded-lg transition touch-manipulation pointer-events-auto " +
         (active
           ? "bg-white text-zinc-900"
           : "text-white/60 hover:text-white hover:bg-white/5")
