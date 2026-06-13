@@ -41,3 +41,7 @@ export const RUN_ELAPSED_OVERRIDE_MS: number | null = 140_372_000;
 // recorded GPS distance doesn't reflect the true mileage (e.g. coverage gaps
 // from OwnTracks being closed). Set to null to fall back to the computed sum.
 export const RUN_COVERED_MILES_OVERRIDE: number | null = 2753;
+
+// Once stopped, the live "current speed" stat is replaced by the run's overall
+// average speed (total distance / total time). Set to null to hide it.
+export const RUN_AVG_SPEED_OVERRIDE_MPH: number | null = 74;

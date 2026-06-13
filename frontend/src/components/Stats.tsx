@@ -4,6 +4,7 @@ import { computeStats, formatMiles } from "../lib/stats";
 import { computeRouteProgress } from "../lib/route";
 import {
   ROUTE_NAME,
+  RUN_AVG_SPEED_OVERRIDE_MPH,
   RUN_COVERED_MILES_OVERRIDE,
   RUN_ELAPSED_OVERRIDE_MS,
 } from "../config/cannonball";
@@ -65,6 +66,15 @@ export default function Stats({
 
   const avgSpeedLabel =
     baseStats.avgSpeedMph > 0 ? `${Math.round(baseStats.avgSpeedMph)} mph` : "—";
+
+  // When stopped, "current speed" no longer makes sense — show the run's overall
+  // average instead, and demote the moving average to "Avg moving speed".
+  const showOverallAvg = stopped && RUN_AVG_SPEED_OVERRIDE_MPH != null;
+  const firstSpeedTitle = showOverallAvg ? "Avg speed" : "Current speed";
+  const firstSpeedValue = showOverallAvg
+    ? `${RUN_AVG_SPEED_OVERRIDE_MPH} mph`
+    : speedLabel;
+  const secondSpeedTitle = showOverallAvg ? "Avg moving speed" : "Avg speed";
 
   // Once stopped, the "route" becomes the actual distance driven. An optional
   // manual override takes precedence over the computed GPS distance.
@@ -133,8 +143,8 @@ export default function Stats({
       </div>
 
       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
-        <Mini label="Current speed" value={speedLabel} />
-        <Mini label="Avg speed"     value={avgSpeedLabel} />
+        <Mini label={firstSpeedTitle}  value={firstSpeedValue} />
+        <Mini label={secondSpeedTitle} value={avgSpeedLabel} />
       </div>
 
       <div className="grid grid-cols-2 gap-2 pt-3">
