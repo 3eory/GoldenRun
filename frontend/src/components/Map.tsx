@@ -71,13 +71,18 @@ function buildEndpointsGeoJSON() {
   ]);
 }
 
-function isValidSegment(prev: LocationRow, cur: LocationRow) {
+// We only break the drawn line on a true GPS teleport (an impossibly fast jump
+// that indicates a bad fix). Plain coverage gaps — e.g. OwnTracks being closed
+// for a while — are bridged with a straight connector so the route stays
+// continuous. This affects rendering only; speed/distance stats live in
+// stats.ts and are unchanged.
+function isGpsGlitch(prev: LocationRow, cur: LocationRow) {
   const d = haversineMiles(prev, cur);
   const dtHrs =
     (new Date(cur.timestamp).getTime() - new Date(prev.timestamp).getTime()) /
     3_600_000;
   const implied = dtHrs > 0 ? d / dtHrs : 0;
-  return implied < 500 && d < 50;
+  return implied >= 600;
 }
 
 function buildRouteGeoJSON(locations: LocationRow[]) {
@@ -89,11 +94,11 @@ function buildRouteGeoJSON(locations: LocationRow[]) {
   for (let i = 1; i < locations.length; i++) {
     const prev = locations[i - 1];
     const cur = locations[i];
-    if (isValidSegment(prev, cur)) {
-      current.push([cur.lon, cur.lat]);
-    } else {
+    if (isGpsGlitch(prev, cur)) {
       if (current.length >= 2) segments.push(current);
       current = [[cur.lon, cur.lat]];
+    } else {
+      current.push([cur.lon, cur.lat]);
     }
   }
   if (current.length >= 2) segments.push(current);

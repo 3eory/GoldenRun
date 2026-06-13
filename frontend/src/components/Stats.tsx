@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import type { LocationRow } from "../lib/types";
 import { computeStats, formatMiles } from "../lib/stats";
 import { computeRouteProgress } from "../lib/route";
-import { ROUTE_NAME } from "../config/cannonball";
+import {
+  ROUTE_NAME,
+  RUN_COVERED_MILES_OVERRIDE,
+  RUN_ELAPSED_OVERRIDE_MS,
+} from "../config/cannonball";
 import { supabase } from "../lib/supabase";
 import type { RunInfo } from "../lib/useTripData";
 
@@ -62,17 +66,26 @@ export default function Stats({
   const avgSpeedLabel =
     baseStats.avgSpeedMph > 0 ? `${Math.round(baseStats.avgSpeedMph)} mph` : "—";
 
-  // Once stopped, the "route" becomes the actual distance driven.
-  const coveredMi = progress.coveredMi;
+  // Once stopped, the "route" becomes the actual distance driven. An optional
+  // manual override takes precedence over the computed GPS distance.
+  const coveredMi =
+    stopped && RUN_COVERED_MILES_OVERRIDE != null
+      ? RUN_COVERED_MILES_OVERRIDE
+      : progress.coveredMi;
   const totalMi = stopped ? coveredMi : progress.totalMi;
   const remainingMi = stopped ? 0 : progress.remainingMi;
 
-  // Elapsed time counter — freezes at the stop time once stopped.
-  const elapsedMs = runInfo.runStart
+  // Elapsed time counter — freezes at the stop time once stopped. Once stopped,
+  // an optional manual override takes precedence over the recorded timestamps.
+  const computedElapsedMs = runInfo.runStart
     ? (runInfo.runStop
         ? new Date(runInfo.runStop).getTime()
         : Date.now()) - new Date(runInfo.runStart).getTime()
     : null;
+  const elapsedMs =
+    stopped && RUN_ELAPSED_OVERRIDE_MS != null
+      ? RUN_ELAPSED_OVERRIDE_MS
+      : computedElapsedMs;
   const timeLabel = elapsedMs != null ? formatElapsedClock(elapsedMs) : "—";
 
   const pct = totalMi > 0 ? Math.min(1, coveredMi / totalMi) : 0;

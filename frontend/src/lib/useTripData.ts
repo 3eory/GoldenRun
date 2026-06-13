@@ -22,8 +22,13 @@ function cutoffIso() {
 function parseRunInfo(data: unknown): RunInfo {
   const row = data as { run_start?: unknown; run_stop?: unknown } | null;
   return {
-    runStart: typeof row?.run_start === "string" ? row.run_start : null,
-    runStop: typeof row?.run_stop === "string" ? row.run_stop : null,
+    // Normalize to canonical ISO (`...Z`) immediately. Postgres returns these as
+    // `2026-06-13 23:30:31.233+00` (space separator, bare `+00` offset), which (a)
+    // breaks raw string comparisons against ISO location timestamps and (b) is
+    // rejected by `new Date()` in Safari. Storing clean ISO makes every downstream
+    // query, filter, and Date() call unambiguous.
+    runStart: toIso(row?.run_start),
+    runStop: toIso(row?.run_stop),
   };
 }
 
@@ -44,6 +49,12 @@ function asTime(value: string): number {
     v = `${v}Z`;
   }
   return new Date(v).getTime();
+}
+
+function toIso(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const ms = asTime(value);
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
 }
 
 function inRunWindow(

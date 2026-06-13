@@ -30,3 +30,14 @@ export const CANNONBALL_WAYPOINTS: Waypoint[] = [
 ];
 
 export const ROUTE_NAME = "Cannonball Run";
+
+// Manual override for the finished run's total elapsed time, in milliseconds.
+// Used when the recorded start/stop timestamps don't reflect the true running
+// time (e.g. a delayed stop). Set to null to fall back to stop − start.
+// 37:59:32 = 37*3600 + 59*60 + 32 = 140372 s.
+export const RUN_ELAPSED_OVERRIDE_MS: number | null = 140_372_000;
+
+// Manual override for the finished run's total miles covered, used when the
+// recorded GPS distance doesn't reflect the true mileage (e.g. coverage gaps
+// from OwnTracks being closed). Set to null to fall back to the computed sum.
+export const RUN_COVERED_MILES_OVERRIDE: number | null = 2753;
