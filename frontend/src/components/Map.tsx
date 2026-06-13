@@ -122,10 +122,10 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
   const didInitialFitRef = useRef(false);
   const currentStyleRef = useRef<string | null>(null);
   const onEventClickRef = useRef(onEventClick);
-  const viewModeRef = useRef<MapViewMode>("location");
+  const viewModeRef = useRef<MapViewMode>("route");
   onEventClickRef.current = onEventClick;
 
-  const [viewMode, setViewMode] = useState<MapViewMode>("location");
+  const [viewMode, setViewMode] = useState<MapViewMode>("route");
   const [mapReady, setMapReady] = useState(false);
 
   const eventsGeo = useMemo(() => buildEventsGeoJSON(events), [events]);
@@ -461,7 +461,7 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
 
   useEffect(() => {
     if (!mapReady || loading || didInitialFitRef.current) return;
-    applyMapView("location");
+    applyMapView("route");
     didInitialFitRef.current = true;
   }, [mapReady, loading, applyMapView]);
 
