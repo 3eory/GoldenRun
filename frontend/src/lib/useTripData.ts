@@ -27,13 +27,40 @@ function parseRunInfo(data: unknown): RunInfo {
   };
 }
 
+// Compare by parsed epoch time, not raw strings: location timestamps are ISO
+// (`2026-06-13T23:43:00.000Z`) while run_start/run_stop come back from Postgres
+// as `timestamptz::text` (`2026-06-13 23:43:00+00`). A string compare would put
+// the `T` (84) above the space (32) and wrongly drop the final day's pings.
+//
+// We also normalize the Postgres format to ISO 8601 first: the space separator
+// and bare `+00` offset are rejected by stricter parsers (e.g. Safari).
+function asTime(value: string): number {
+  let v = value.trim().replace(" ", "T");
+  // Normalize timezone: `+00`/`-05` -> `+00:00`, and append `Z` if no offset.
+  const tzMatch = v.match(/([+-]\d{2})(:?\d{2})?$/);
+  if (tzMatch) {
+    if (!tzMatch[2]) v = `${v}:00`;
+  } else if (!v.endsWith("Z")) {
+    v = `${v}Z`;
+  }
+  return new Date(v).getTime();
+}
+
 function inRunWindow(
   timestamp: string,
   runStart: string | null,
   runStop: string | null
 ) {
-  if (runStart && timestamp < runStart) return false;
-  if (runStop && timestamp > runStop) return false;
+  const t = asTime(timestamp);
+  if (Number.isNaN(t)) return false;
+  if (runStart) {
+    const start = asTime(runStart);
+    if (!Number.isNaN(start) && t < start) return false;
+  }
+  if (runStop) {
+    const stop = asTime(runStop);
+    if (!Number.isNaN(stop) && t > stop) return false;
+  }
   return true;
 }
 
