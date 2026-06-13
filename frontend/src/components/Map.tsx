@@ -130,9 +130,13 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
   const locationsRef = useRef(locations);
   const eventsRef = useRef(events);
   const lastRef = useRef(last);
+  const routeGeoRef = useRef(routeGeo);
+  const eventsGeoRef = useRef(eventsGeo);
   locationsRef.current = locations;
   eventsRef.current = events;
   lastRef.current = last;
+  routeGeoRef.current = routeGeo;
+  eventsGeoRef.current = eventsGeo;
 
   const applyMapView = useCallback((mode: MapViewMode) => {
     const map = mapRef.current;
@@ -217,7 +221,7 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
       safeRemoveLayer(map, ROUTE_LAYER);
       safeRemoveLayer(map, ROUTE_HALO_LAYER);
       safeRemoveSource(map, ROUTE_SRC);
-      map.addSource(ROUTE_SRC, { type: "geojson", data: routeGeo as any });
+      map.addSource(ROUTE_SRC, { type: "geojson", data: routeGeoRef.current as any });
       map.addLayer({
         id: ROUTE_HALO_LAYER,
         type: "line",
@@ -267,7 +271,7 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
       safeRemoveLayer(map, EVENTS_EMOJI_LAYER);
       safeRemoveLayer(map, EVENTS_CIRCLE_LAYER);
       safeRemoveSource(map, EVENTS_SRC);
-      map.addSource(EVENTS_SRC, { type: "geojson", data: eventsGeo as any });
+      map.addSource(EVENTS_SRC, { type: "geojson", data: eventsGeoRef.current as any });
       map.addLayer({
         id: EVENTS_CIRCLE_LAYER,
         type: "circle",
@@ -297,10 +301,11 @@ export default function Map({ locations, events, styleUrl, loading, onEventClick
       safeRemoveLayer(map, CURSOR_LAYER);
       safeRemoveLayer(map, CURSOR_HALO_LAYER);
       safeRemoveSource(map, CURSOR_SRC);
+      const curLast = lastRef.current;
       map.addSource(CURSOR_SRC, {
         type: "geojson",
-        data: last
-          ? (point([last.lon, last.lat]) as any)
+        data: curLast
+          ? (point([curLast.lon, curLast.lat]) as any)
           : (featureCollection([]) as any),
       });
       map.addLayer({
