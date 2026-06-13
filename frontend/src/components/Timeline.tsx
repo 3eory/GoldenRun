@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import type { EventRow, EventType } from "../lib/types";
+import { useMemo } from "react";
+import type { EventRow } from "../lib/types";
 import { EVENT_META } from "../lib/types";
 
 type Props = {
@@ -7,62 +7,25 @@ type Props = {
   onSelect?: (e: EventRow) => void;
 };
 
-const ALL_TYPES: EventType[] = ["gas", "food", "sight", "sleep", "note"];
-
 export default function Timeline({ events, onSelect }: Props) {
-  const [active, setActive] = useState<Set<EventType>>(new Set(ALL_TYPES));
-
-  const filtered = useMemo(() => {
-    const out = events.filter((e) => active.has(e.type));
-    out.sort(
+  const sorted = useMemo(() => {
+    return [...events].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-    return out;
-  }, [events, active]);
-
-  function toggle(t: EventType) {
-    setActive((prev) => {
-      const next = new Set(prev);
-      if (next.has(t)) next.delete(t);
-      else next.add(t);
-      if (next.size === 0) return new Set(ALL_TYPES);
-      return next;
-    });
-  }
+  }, [events]);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-zinc-900/70 text-white/90 flex flex-col h-full overflow-hidden">
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <div className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Timeline</div>
-        <div className="text-xs text-white/40">{filtered.length} entries</div>
-      </div>
-      <div className="px-4 pb-2 flex flex-wrap gap-1.5">
-        {ALL_TYPES.map((t) => {
-          const on = active.has(t);
-          const m = EVENT_META[t];
-          return (
-            <button
-              key={t}
-              onClick={() => toggle(t)}
-              className={
-                "px-2.5 py-1 rounded-full text-xs font-medium border transition " +
-                (on
-                  ? "bg-white text-zinc-900 border-white"
-                  : "bg-transparent border-white/10 text-white/50 hover:border-white/30")
-              }
-            >
-              <span className="mr-1">{m.emoji}</span>
-              {m.label}
-            </button>
-          );
-        })}
+        <div className="text-xs text-white/40">{sorted.length} entries</div>
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-3">
-        {filtered.length === 0 ? (
+        {sorted.length === 0 ? (
           <div className="p-6 text-sm text-white/40 text-center">No entries yet.</div>
         ) : (
           <ul className="flex flex-col">
-            {filtered.map((e) => (
+            {sorted.map((e) => (
               <li key={e.id}>
                 <button
                   onClick={() => onSelect?.(e)}
@@ -77,12 +40,14 @@ export default function Timeline({ events, onSelect }: Props) {
                       )}
                     </div>
                     <div className="text-xs text-white/40">
-                      {new Date(e.timestamp).toLocaleString(undefined, {
+                      {new Date(e.timestamp).toLocaleString("en-US", {
+                        timeZone: "America/New_York",
                         month: "short",
                         day: "numeric",
                         hour: "numeric",
                         minute: "2-digit",
-                      })}
+                      })}{" "}
+                      EST
                     </div>
                     {e.notes && (
                       <div className="text-sm text-white/70 mt-0.5 line-clamp-2">{e.notes}</div>
